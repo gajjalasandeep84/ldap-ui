@@ -205,9 +205,8 @@ export default function UserAccessViewer() {
         setUsers(results);
 
         // If selected user is not in results, select the first one
-        if (!results.some((u) => u.userId === selectedId)) {
-          setSelectedId(results[0]?.userId ?? "");
-        }
+        setSelectedId((prev) => (results.some((u) => u.userId === prev) ? prev : results[0]?.userId ?? ""));
+
       } catch (e) {
         if (!cancelled) setError("Search failed. Try again.");
       } finally {
@@ -219,7 +218,7 @@ export default function UserAccessViewer() {
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [query, selectedId]);
+  }, [query]);
 
 
   const user = useMemo(() => {
@@ -339,7 +338,7 @@ export default function UserAccessViewer() {
           </Box>
           <Divider />
 
-          {!loading && !error && users.length === 0 && (
+         {!loading && !error && users.length === 0 && query.trim() && (
             <Box sx={{ p: 2 }}>
               <Typography variant="body2" color="text.secondary">
                 No users found
@@ -352,7 +351,7 @@ export default function UserAccessViewer() {
             {users.map((u) => (
               <ListItemButton
                 key={u.userId}
-                selected={u.userId === user.userId}
+                selected={u.userId === selectedId}
                 onClick={() => {
                   setSelectedId(u.userId);
                   setTab(0);
