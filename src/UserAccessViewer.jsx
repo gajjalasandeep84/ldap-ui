@@ -1,5 +1,5 @@
 // src/UserAccessViewer.jsx
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   AppBar,
   Box,
@@ -167,16 +167,60 @@ export default function UserAccessViewer() {
   const [groupFilter, setGroupFilter] = useState("");
   const [permFilter, setPermFilter] = useState("");
 
-  const users = useMemo(() => {
+  const [users, setUsers] = useState(MOCK.users);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return MOCK.users;
-    return MOCK.users.filter(
-      (u) =>
-        u.userId.toLowerCase().includes(q) ||
-        u.displayName.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q)
-    );
-  }, [query]);
+
+    // If query is empty, show all (like Day 6)
+    if (!q) {
+      setUsers(MOCK.users);
+      setLoading(false);
+      setError("");
+      return;
+    }
+
+    let cancelled = false;
+
+    // Debounce: wait 300ms after user stops typing
+    const timeoutId = setTimeout(async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        // Simulate network delay (like calling LDAP API)
+        await new Promise((r) => setTimeout(r, 500));
+
+        if (cancelled) return;
+
+        const results = MOCK.users.filter(
+          (u) =>
+            u.userId.toLowerCase().includes(q) ||
+            u.displayName.toLowerCase().includes(q) ||
+            u.email.toLowerCase().includes(q)
+        );
+
+        setUsers(results);
+
+        // If selected user is not in results, select the first one
+        if (!results.some((u) => u.userId === selectedId)) {
+          setSelectedId(results[0]?.userId ?? "");
+        }
+      } catch (e) {
+        if (!cancelled) setError("Search failed. Try again.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [query, selectedId]);
+
 
   const user = useMemo(() => {
     return users.find((u) => u.userId === selectedId) || users[0] || MOCK.users[0];
@@ -284,13 +328,25 @@ export default function UserAccessViewer() {
         >
           <Box sx={{ p: 2 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-              Results ({users.length})
+              Results ({users.length}) {loading ? "• Searching..." : ""}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Click a user to view groups and permissions
-            </Typography>
+
+            {error && (
+              <Typography variant="body2" sx={{ mt: 0.5, color: "crimson" }}>
+                {error}
+              </Typography>
+            )}
           </Box>
           <Divider />
+
+          {!loading && !error && users.length === 0 && (
+            <Box sx={{ p: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                No users found
+              </Typography>
+            </Box>
+          )}
+
 
           <List disablePadding>
             {users.map((u) => (
