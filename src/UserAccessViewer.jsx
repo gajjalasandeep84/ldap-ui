@@ -152,7 +152,7 @@ export default function UserAccessViewer() {
         </Toolbar>
       </AppBar>
 
-      <Box sx={{ flex: 1, minHeight: 0, display: "flex", bgcolor: "#f5f7fb" }}>
+      <Box sx={{ flex: 1, minHeight: 0, display: "flex", bgcolor: "background.default"}}>
         <ResultsPane
           users={users}
           selectedId={selectedId}

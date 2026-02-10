@@ -14,7 +14,7 @@ export function PermissionsTab({ user, permFilter, setPermFilter, filteredPerms,
       />
 
       <Paper variant="outlined" sx={{ borderRadius: 2, mt: 2, overflow: "hidden" }}>
-        <Box sx={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr 120px 1fr", gap: 1, p: 1.5, bgcolor: "#fafafa" }}>
+        <Box sx={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr 120px 1fr", gap: 1, p: 1.5, bgcolor: "background.default"}}>
           <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>Permission</Typography>
           <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>Category</Typography>
           <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>Risk</Typography>

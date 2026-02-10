@@ -13,7 +13,7 @@ export function GroupsTab({ user, groupFilter, setGroupFilter, filteredGroups, o
       />
 
       <Paper variant="outlined" sx={{ borderRadius: 2, mt: 2, overflow: "hidden" }}>
-        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 160px 140px", gap: 1, p: 1.5, bgcolor: "#fafafa" }}>
+        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 160px 140px", gap: 1, p: 1.5, bgcolor: "background.default"}}>
           <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>Group</Typography>
           <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>Membership</Typography>
           <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>Actions</Typography>
