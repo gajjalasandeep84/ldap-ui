@@ -1,30 +1,51 @@
 
 # ldap-ui Kubernetes Deployment Demo
 
-<<<<<<< HEAD
-This project demonstrates how to take a React application and deploy it using a modern container-based architecture.
+This project demonstrates how to deploy a **React (Vite) application** using a modern container-based architecture.
 
-Local React App → Docker Container → Docker Hub → Kubernetes Deployment → Service → Ingress → Load Balanced Pods.
+Pipeline:
 
-The purpose of this project is to understand containerization, orchestration, networking, and scaling in Kubernetes.
+Developer → Docker Build → Docker Hub → Kubernetes Deployment → Pods → Service → Ingress → Browser
+
+The goal of this project is to understand **containerization, orchestration, networking, scaling, and debugging in Kubernetes**.
 
 ---
 
-# Architecture Overview
+# DevOps Deployment Pipeline
 
-=======
-This repository demonstrates how to deploy a **React (Vite) application** using a modern container architecture:
-
-React App → Docker Image → Docker Hub → Kubernetes Deployment → Service → Ingress → Load Balanced Pods
-
-The goal of this project is to learn **containerization, orchestration, networking, scaling, and self‑healing** in Kubernetes.
+```
+Developer
+   │
+   ▼
+Docker Build
+   │
+   ▼
+Docker Image
+   │
+   ▼
+Docker Hub
+   │
+   ▼
+Kubernetes Deployment
+   │
+   ▼
+Pods
+   │
+   ▼
+Service
+   │
+   ▼
+Ingress
+   │
+   ▼
+Browser
+```
 
 ---
 
 # High Level Architecture
 
 ```
->>>>>>> 697c414 (Add detailed Kubernetes architecture and deployment documentation)
                 ┌───────────────┐
                 │    Browser     │
                 └───────┬───────┘
@@ -54,8 +75,6 @@ The goal of this project is to learn **containerization, orchestration, networki
             │           │           │
             ▼           ▼           ▼
         React App   React App   React App
-<<<<<<< HEAD
-=======
 ```
 
 ---
@@ -63,78 +82,40 @@ The goal of this project is to learn **containerization, orchestration, networki
 # Kubernetes Cluster Architecture
 
 ```
-                Kubernetes Cluster
-                ──────────────────
+                    Kubernetes Cluster
+                    ──────────────────
 
-        ┌──────────────────────────────┐
-        │        Control Plane         │
-        │                              │
-        │  API Server                  │
-        │  Scheduler                   │
-        │  Controller Manager          │
-        │  etcd (cluster state DB)     │
-        └──────────────┬───────────────┘
-                       │
-                       ▼
-        ┌──────────────────────────────┐
-        │          Worker Node         │
-        │                              │
-        │   kubelet                    │
-        │   kube-proxy                 │
-        │   container runtime          │
-        │                              │
-        │   ┌───────┐ ┌───────┐        │
-        │   │ Pod 1 │ │ Pod 2 │        │
-        │   └───────┘ └───────┘        │
-        └──────────────────────────────┘
+        ┌────────────────────────────────────┐
+        │            Control Plane           │
+        │                                    │
+        │  API Server                        │
+        │  Scheduler                         │
+        │  Controller Manager                │
+        │  etcd (cluster state database)     │
+        └───────────────┬────────────────────┘
+                        │
+                        ▼
+        ┌────────────────────────────────────┐
+        │             Worker Node            │
+        │                                    │
+        │  kubelet                           │
+        │  kube-proxy                        │
+        │  container runtime                 │
+        │                                    │
+        │     ┌─────────┐   ┌─────────┐      │
+        │     │  Pod 1  │   │  Pod 2  │      │
+        │     └─────────┘   └─────────┘      │
+        │                                    │
+        │     ┌─────────┐                    │
+        │     │  Pod 3  │                    │
+        │     └─────────┘                    │
+        └────────────────────────────────────┘
 ```
-
----
-
-# Request Flow Explained
-
-When a user opens the application:
-
-```
-1 Browser sends request
-        │
-        ▼
-2 Ingress receives HTTP request
-        │
-        ▼
-3 Ingress forwards to Service
-        │
-        ▼
-4 Service load balances traffic
-        │
-        ▼
-5 One of the Pods receives request
-        │
-        ▼
-6 NGINX serves the React application
-```
->>>>>>> 697c414 (Add detailed Kubernetes architecture and deployment documentation)
 
 ---
 
 # Technology Stack
 
-<<<<<<< HEAD
-Frontend: React + Vite  
-Containerization: Docker  
-Container Registry: Docker Hub  
-Orchestration: Kubernetes  
-Networking: Kubernetes Service, NGINX Ingress Controller
-
----
-
-# Project Structure
-
-ldap-ui
-│
-├── src/
-├── public/
-=======
 Frontend  
 React + Vite
 
@@ -159,11 +140,7 @@ NGINX Ingress Controller
 ldap-ui
 │
 ├── src/
-│    └── React source code
-│
 ├── public/
-│
->>>>>>> 697c414 (Add detailed Kubernetes architecture and deployment documentation)
 ├── Dockerfile
 ├── package.json
 ├── vite.config.js
@@ -176,10 +153,7 @@ ldap-ui
 ├── docs/
 │
 └── README.md
-<<<<<<< HEAD
-=======
 ```
->>>>>>> 697c414 (Add detailed Kubernetes architecture and deployment documentation)
 
 ---
 
@@ -187,7 +161,6 @@ ldap-ui
 
 Build image
 
-<<<<<<< HEAD
 docker build -t ldap-ui:1.0 .
 
 Run locally
@@ -198,151 +171,58 @@ Open
 
 http://localhost:3000
 
----
-
-# Push to Docker Hub
-
-docker tag ldap-ui:1.0 gajjalasandeep/ldap-ui:1.0
-
-docker push gajjalasandeep/ldap-ui:1.0
-=======
-```
-docker build -t ldap-ui:1.0 .
-```
-
-Run locally
-
-```
-docker run -p 3000:80 ldap-ui:1.0
-```
-
-Access
-
-```
-http://localhost:3000
-```
-
 Port mapping
 
-```
-3000 → host port
-80   → container NGINX port
-```
+3000 → host port  
+80 → container NGINX port
 
 ---
 
 # Push Image to Docker Hub
 
-```
 docker tag ldap-ui:1.0 gajjalasandeep/ldap-ui:1.0
+
 docker push gajjalasandeep/ldap-ui:1.0
-```
 
-Docker Hub repository
+Docker Hub
 
-```
 https://hub.docker.com/r/gajjalasandeep/ldap-ui
-```
->>>>>>> 697c414 (Add detailed Kubernetes architecture and deployment documentation)
 
 ---
 
 # Kubernetes Deployment
 
-<<<<<<< HEAD
 kubectl apply -f k8s/ldap-ui-deploy.yaml
 
 Check pods
 
 kubectl get pods
-=======
-```
-kubectl apply -f k8s/ldap-ui-deploy.yaml
-```
-
-Verify pods
-
-```
-kubectl get pods
-```
 
 Expected
 
-```
-ldap-ui-xxxx   Running
-ldap-ui-xxxx   Running
-ldap-ui-xxxx   Running
-```
->>>>>>> 697c414 (Add detailed Kubernetes architecture and deployment documentation)
+ldap-ui-xxxxx Running
 
 ---
 
 # Kubernetes Service
 
-<<<<<<< HEAD
 kubectl apply -f k8s/ldap-ui-svc.yaml
 
 kubectl get svc
-=======
-```
-kubectl apply -f k8s/ldap-ui-svc.yaml
-kubectl get svc
-```
 
-Service distributes traffic across pods.
-
-```
-Service
-  │
- ├── Pod 1
- ├── Pod 2
- └── Pod 3
-```
->>>>>>> 697c414 (Add detailed Kubernetes architecture and deployment documentation)
+Service load balances traffic across pods.
 
 ---
 
 # Kubernetes Ingress
 
-<<<<<<< HEAD
 kubectl apply -f k8s/ldap-ui-ingress.yaml
 
 kubectl get ingress
-
----
-
-# Local Domain Setup
-
-Edit
-
-C:\Windows\System32\drivers\etc\hosts
-
-Add
-
-127.0.0.1 ldap-ui.local
-
-Open
-
-http://ldap-ui.local
-
----
-
-# Kubernetes Self Healing
-
-kubectl delete pod <pod-name>
-
-Deployment automatically recreates it.
-=======
-```
-kubectl apply -f k8s/ldap-ui-ingress.yaml
-kubectl get ingress
-```
 
 Domain used
 
-```
 ldap-ui.local
-```
 
 ---
 
@@ -350,95 +230,89 @@ ldap-ui.local
 
 Edit hosts file
 
-Windows
-
-```
 C:\Windows\System32\drivers\etc\hosts
-```
 
 Add
 
-```
 127.0.0.1 ldap-ui.local
-```
 
 Then open
 
-```
 http://ldap-ui.local
-```
 
 ---
 
-# Kubernetes Self Healing Demo
+# Request Flow Debugging
+
+Check running pods
+
+kubectl get pods
+
+Describe pod
+
+kubectl describe pod <pod-name>
+
+Check service endpoints
+
+kubectl get endpoints ldap-ui-svc
+
+Example
+
+10.1.0.21:80  
+10.1.0.22:80  
+10.1.0.23:80  
+
+Check ingress
+
+kubectl describe ingress ldap-ui-ingress
+
+View logs
+
+kubectl logs <pod-name>
+
+---
+
+# Kubernetes Self Healing
 
 Delete a pod
 
-```
 kubectl delete pod <pod-name>
-```
 
-Deployment controller automatically recreates it.
-
-```
-Pod deleted
-     │
-Deployment detects missing pod
-     │
-New pod created
-```
+Deployment controller recreates it automatically.
 
 ---
 
-# Load Balancing Demo
+# Load Balancing
 
-Traffic distributed across pods.
+Traffic distributed across pods
 
-```
 Browser
    │
 Service
    │
- ├── Pod 1
- ├── Pod 2
- └── Pod 3
-```
+├── Pod 1
+├── Pod 2
+└── Pod 3
 
 Benefits
 
 High availability  
 Fault tolerance  
 Scalability
->>>>>>> 697c414 (Add detailed Kubernetes architecture and deployment documentation)
 
 ---
 
 # Learning Outcomes
 
-<<<<<<< HEAD
-Containerizing React apps  
+Containerizing React applications  
 Publishing Docker images  
-Running containers in Kubernetes  
-Service load balancing  
-Ingress routing  
-Kubernetes self healing
-=======
-This project demonstrates
-
-• Containerizing React applications  
-• Publishing images to Docker Hub  
-• Deploying containers to Kubernetes  
-• Service based load balancing  
-• Ingress based routing  
-• Kubernetes self‑healing  
->>>>>>> 697c414 (Add detailed Kubernetes architecture and deployment documentation)
+Deploying containers in Kubernetes  
+Service-based load balancing  
+Ingress-based HTTP routing  
+Kubernetes self-healing
 
 ---
 
 # Author
 
-<<<<<<< HEAD
 Sandeep Gajjala
-=======
-Sandeep Gajjala
->>>>>>> 697c414 (Add detailed Kubernetes architecture and deployment documentation)
