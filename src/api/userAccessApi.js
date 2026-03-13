@@ -1,31 +1,160 @@
 import { MOCK } from "./mockData";
 
 /**
- * Later: replace this with a real fetch to your backend.
- * Keep the function signature the same.
+ * Transform backend AD user response to frontend format
+ * Maps LDAP/Active Directory response to UI data structure
  */
-export async function searchUsers({ query, signal }) {
-  // Simulate network delay
-  await new Promise((r) => setTimeout(r, 500));
-  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+function transformAdUserToFrontend(adUser) {
+  // Parse memberOf DNs to extract group names and determine membership type
+  const adGroups = (adUser.memberOf || []).map((dn) => {
+    // Extract CN=GroupName from DN
+    const cnMatch = dn.match(/^CN=([^,]+)/i);
+    const groupName = cnMatch ? cnMatch[1] : dn;
 
-  const q = query.trim().toLowerCase();
-  if (!q) return MOCK.users;
+    return {
+      name: groupName,
+      // TODO: Determine DIRECT vs NESTED membership
+      // For now, default to DIRECT (requires backend enhancement)
+      membership: "DIRECT",
+      dn: dn,
+    };
+  });
 
-  return MOCK.users.filter(
-    (u) =>
-      u.userId.toLowerCase().includes(q) ||
-      u.displayName.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q)
+  // Determine status from accountExpires
+  // "Never Expires" or no expires date = ACTIVE
+  // Expired date = DISABLED
+  const isExpired =
+    adUser.accountExpires &&
+    adUser.accountExpires !== "Never Expires" &&
+    new Date(adUser.accountExpires) < new Date();
+
+  const status = isExpired ? "DISABLED" : "ACTIVE";
+
+  // Mock permissions data (from groupToPermissions mapping)
+  // TODO: Replace with real data from backend when available
+  const mockPermissionsForUser = getMockPermissionsForGroups(
+    adGroups.map((g) => g.name)
   );
+
+  return {
+    userId: adUser.sAMAccountName || adUser.name,
+    displayName: adUser.displayName,
+    email: adUser.mail,
+    status: status,
+    lastLogon: null, // Not available from LDAP, would need from Windows event logs or DB
+    pwdLastSet: adUser.pwdLastSet,
+    adGroups: adGroups,
+    permissions: mockPermissionsForUser.permissions,
+    groupToPermissions: mockPermissionsForUser.groupToPermissions,
+  };
 }
 
-//When you’re ready to switch to backend
-//export async function searchUsers({ query, signal }) {
-//  const res = await fetch(`/api/users?query=${encodeURIComponent(query)}`, { signal });
-//  if (!res.ok) throw new Error("HTTP " + res.status);
-//  return res.json();
-//}
+/**
+ * Mock permissions based on group membership
+ * Later: retrieve from backend database/API
+ */
+function getMockPermissionsForGroups(groupNames) {
+  // Mock permission database
+  const groupPermissionMap = {
+    BO_APPEALS_READ: ["APPEALS_VIEW", "APPEALS_SEARCH"],
+    BO_DOCS_VIEW: ["DOCS_VIEW"],
+    BO_REPORTS_VIEW: ["REPORTS_VIEW", "REPORTS_EXPORT"],
+    BO_ADMIN_SUPPORT: ["ADMIN_IMPERSONATE", "USER_UNLOCK"],
+  };
+
+  const permissionDetails = {
+    APPEALS_VIEW: { label: "View Appeals", category: "Appeals", risk: "LOW" },
+    APPEALS_SEARCH: { label: "Search Appeals", category: "Appeals", risk: "LOW" },
+    DOCS_VIEW: { label: "View Documents", category: "Documents", risk: "MED" },
+    REPORTS_VIEW: { label: "View Reports", category: "Reports", risk: "MED" },
+    REPORTS_EXPORT: { label: "Export Reports", category: "Reports", risk: "HIGH" },
+    ADMIN_IMPERSONATE: {
+      label: "Impersonate User",
+      category: "Admin",
+      risk: "HIGH",
+    },
+    USER_UNLOCK: { label: "Unlock User Account", category: "Admin", risk: "MED" },
+  };
+
+  // Build permissions array
+  const permissionsMap = new Map();
+  const groupToPermissions = [];
+
+  groupNames.forEach((groupName) => {
+    const perms = groupPermissionMap[groupName] || [];
+    const groupPerms = [];
+
+    perms.forEach((code) => {
+      const detail = permissionDetails[code];
+      if (!permissionsMap.has(code)) {
+        permissionsMap.set(code, {
+          code,
+          label: detail?.label || code,
+          category: detail?.category || "General",
+          risk: detail?.risk || "LOW",
+          grantedVia: [groupName],
+        });
+      } else {
+        // Add to existing permission's grantedVia
+        const existing = permissionsMap.get(code);
+        if (!existing.grantedVia.includes(groupName)) {
+          existing.grantedVia.push(groupName);
+        }
+      }
+      groupPerms.push(code);
+    });
+
+    if (perms.length > 0) {
+      groupToPermissions.push({
+        group: groupName,
+        permissions: groupPerms,
+      });
+    }
+  });
+
+  return {
+    permissions: Array.from(permissionsMap.values()),
+    groupToPermissions: groupToPermissions,
+  };
+}
+
+/**
+ * Search users from backend LDAP API
+ * Integrates with ad-users Spring Boot backend
+ */
+export async function searchUsers({ query, signal, env = "test" }) {
+  try {
+    // Call backend API endpoint
+    const endpoint = `/ad/usersByEnv/${env}`;
+    const res = await fetch(endpoint, { signal });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const adUsers = await res.json();
+
+    // Transform backend response to frontend format
+    const transformedUsers = adUsers.map(transformAdUserToFrontend);
+
+    // Filter by query if provided
+    if (query && query.trim()) {
+      const q = query.trim().toLowerCase();
+      return transformedUsers.filter(
+        (u) =>
+          u.userId.toLowerCase().includes(q) ||
+          u.displayName.toLowerCase().includes(q) ||
+          u.email.toLowerCase().includes(q)
+      );
+    }
+
+    return transformedUsers;
+  } catch (error) {
+    // Log error but don't throw - let caller handle
+    console.error("Failed to fetch users:", error);
+    throw error;
+  }
+}
 
 /**
  * CSV export stays UI-side for now.

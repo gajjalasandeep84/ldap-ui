@@ -11,6 +11,9 @@ import {
   Toolbar,
   Typography,
   Paper,
+  Select,
+  MenuItem,
+  FormControl,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import DownloadIcon from "@mui/icons-material/Download";
@@ -44,6 +47,8 @@ export default function UserAccessViewer() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const [env, setEnv] = useState("test"); // Environment: test, prod, default
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerGroup, setDrawerGroup] = useState({ group: "", permissions: [] });
 
@@ -59,7 +64,7 @@ export default function UserAccessViewer() {
         setLoading(true);
         setError("");
 
-        const results = await searchUsers({ query: debouncedQuery, signal: controller.signal });
+        const results = await searchUsers({ query: debouncedQuery, signal: controller.signal, env });
 
         setUsers(results);
         setSelectedId((prev) => (results.some((u) => u.userId === prev) ? prev : results[0]?.userId ?? ""));
@@ -71,7 +76,7 @@ export default function UserAccessViewer() {
     })();
 
     return () => controller.abort();
-  }, [debouncedQuery]);
+  }, [debouncedQuery, env]);
 
   const user = useMemo(() => {
     return users.find((u) => u.userId === selectedId) || users[0];
@@ -138,6 +143,18 @@ export default function UserAccessViewer() {
               ),
             }}
           />
+
+          <FormControl size="small" sx={{ minWidth: 100, bgcolor: "white", borderRadius: 1 }}>
+            <Select
+              value={env}
+              onChange={(e) => setEnv(e.target.value)}
+              displayEmpty
+            >
+              <MenuItem value="test">Test</MenuItem>
+              <MenuItem value="prod">Production</MenuItem>
+              <MenuItem value="default">Default</MenuItem>
+            </Select>
+          </FormControl>
 
           <Button
             variant="contained"
