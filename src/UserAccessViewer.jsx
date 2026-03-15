@@ -18,7 +18,6 @@ import {
 import SearchIcon from "@mui/icons-material/Search";
 import DownloadIcon from "@mui/icons-material/Download";
 
-import { useDebouncedValue } from "./hooks/useDebouncedValue";
 import { searchUsers, permissionsToCsv } from "./api/userAccessApi";
 import { KV } from "./components/kv";
 import { ResultsPane } from "./components/ResultsPane";
@@ -38,9 +37,10 @@ function formatDate(iso) {
 
 export default function UserAccessViewer() {
   const [query, setQuery] = useState("");
-  const debouncedQuery = useDebouncedValue(query, 300);
 
-  const [users, setUsers] = useState([]);
+  // full list loaded once from backend
+  const [allUsers, setAllUsers] = useState([]);
+
   const [selectedId, setSelectedId] = useState("");
   const [tab, setTab] = useState(0);
 
@@ -50,12 +50,15 @@ export default function UserAccessViewer() {
   const [env, setEnv] = useState("test"); // Environment: test, prod, default
 
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerGroup, setDrawerGroup] = useState({ group: "", permissions: [] });
+  const [drawerGroup, setDrawerGroup] = useState({
+    group: "",
+    permissions: [],
+  });
 
   const [groupFilter, setGroupFilter] = useState("");
   const [permFilter, setPermFilter] = useState("");
 
-  // Day 8: debounced search + cancellation
+  // Load all users once on page load, and reload only when environment changes
   useEffect(() => {
     const controller = new AbortController();
 
@@ -64,29 +67,70 @@ export default function UserAccessViewer() {
         setLoading(true);
         setError("");
 
-        const results = await searchUsers({ query: debouncedQuery, signal: controller.signal, env });
+        // Expectation: backend returns the full list when query is empty
+        const results = await searchUsers({
+          query: "",
+          signal: controller.signal,
+          env,
+        });
 
-        setUsers(results);
-        setSelectedId((prev) => (results.some((u) => u.userId === prev) ? prev : results[0]?.userId ?? ""));
+        setAllUsers(results);
+        setSelectedId((prev) =>
+          results.some((u) => u.userId === prev)
+            ? prev
+            : (results[0]?.userId ?? ""),
+        );
       } catch (e) {
-        if (e?.name !== "AbortError") setError("Search failed. Try again.");
+        if (e?.name === "AbortError") return;
+        setError("Failed to load users.", e);
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
     })();
 
     return () => controller.abort();
-  }, [debouncedQuery, env]);
+  }, [env]);
 
+  // Client-side search only
+  const users = useMemo(() => {
+    const q = query.trim().toLowerCase();
+
+    if (!q) return allUsers;
+
+    return allUsers.filter((u) => {
+      return (
+        u.displayName?.toLowerCase().includes(q) ||
+        u.userId?.toLowerCase().includes(q) ||
+        u.email?.toLowerCase().includes(q)
+      );
+    });
+  }, [allUsers, query]);
+
+  // Keep selected user valid against filtered list
   const user = useMemo(() => {
+    if (!users.length) return null;
     return users.find((u) => u.userId === selectedId) || users[0];
+  }, [users, selectedId]);
+
+  // Optional: if current selected user disappears from filtered results, select first visible one
+  useEffect(() => {
+    if (!users.length) {
+      setSelectedId("");
+      return;
+    }
+
+    if (!users.some((u) => u.userId === selectedId)) {
+      setSelectedId(users[0].userId);
+    }
   }, [users, selectedId]);
 
   const filteredGroups = useMemo(() => {
     if (!user) return [];
     const q = groupFilter.trim().toLowerCase();
     if (!q) return user.adGroups;
-    return user.adGroups.filter((g) => g.name.toLowerCase().includes(q) || g.dn.toLowerCase().includes(q));
+    return user.adGroups.filter(
+      (g) => g.name.toLowerCase().includes(q) || g.dn.toLowerCase().includes(q),
+    );
   }, [user, groupFilter]);
 
   const filteredPerms = useMemo(() => {
@@ -98,7 +142,7 @@ export default function UserAccessViewer() {
         p.code.toLowerCase().includes(q) ||
         p.label.toLowerCase().includes(q) ||
         p.category.toLowerCase().includes(q) ||
-        p.grantedVia.some((g) => g.toLowerCase().includes(q))
+        p.grantedVia.some((g) => g.toLowerCase().includes(q)),
     );
   }, [user, permFilter]);
 
@@ -125,7 +169,10 @@ export default function UserAccessViewer() {
     <Box sx={{ height: "100vh", display: "flex", flexDirection: "column" }}>
       <AppBar position="static">
         <Toolbar sx={{ gap: 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: 800, whiteSpace: "nowrap" }}>
+          <Typography
+            variant="h6"
+            sx={{ fontWeight: 800, whiteSpace: "nowrap" }}
+          >
             User Access Viewer
           </Typography>
 
@@ -134,7 +181,13 @@ export default function UserAccessViewer() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search login / email / name"
             size="small"
-            sx={{ bgcolor: "white", borderRadius: 1, flex: 1, maxWidth: 760, minWidth: 320 }}
+            sx={{
+              bgcolor: "white",
+              borderRadius: 1,
+              flex: 1,
+              maxWidth: 760,
+              minWidth: 320,
+            }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -144,7 +197,10 @@ export default function UserAccessViewer() {
             }}
           />
 
-          <FormControl size="small" sx={{ minWidth: 100, bgcolor: "white", borderRadius: 1 }}>
+          <FormControl
+            size="small"
+            sx={{ minWidth: 100, bgcolor: "white", borderRadius: 1 }}
+          >
             <Select
               value={env}
               onChange={(e) => setEnv(e.target.value)}
@@ -169,7 +225,14 @@ export default function UserAccessViewer() {
         </Toolbar>
       </AppBar>
 
-      <Box sx={{ flex: 1, minHeight: 0, display: "flex", bgcolor: "background.default"}}>
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          bgcolor: "background.default",
+        }}
+      >
         <ResultsPane
           users={users}
           selectedId={selectedId}
@@ -188,16 +251,27 @@ export default function UserAccessViewer() {
           <Box sx={{ p: 2 }}>
             {!user ? (
               <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
-                <Typography variant="h6" sx={{ fontWeight: 900 }}>No user selected</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 900 }}>
+                  No user selected
+                </Typography>
                 <Typography color="text.secondary" sx={{ mt: 1 }}>
-                  Type a query to load users.
+                  {query
+                    ? "No users matched your search."
+                    : "No users available."}
                 </Typography>
               </Paper>
             ) : (
               <>
                 <UserHeader user={user} formatDate={formatDate} />
-                <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden", mt: 2 }}>
-                  <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 2 }}>
+                <Paper
+                  variant="outlined"
+                  sx={{ borderRadius: 2, overflow: "hidden", mt: 2 }}
+                >
+                  <Tabs
+                    value={tab}
+                    onChange={(_, v) => setTab(v)}
+                    sx={{ px: 2 }}
+                  >
                     <Tab label="Overview" />
                     <Tab label={`AD Groups (${user.adGroups.length})`} />
                     <Tab label={`Permissions (${user.permissions.length})`} />
@@ -206,9 +280,20 @@ export default function UserAccessViewer() {
                   <Divider />
 
                   {tab === 0 && (
-                    <Box sx={{ p: 2, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+                    <Box
+                      sx={{
+                        p: 2,
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: 2,
+                      }}
+                    >
                       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-                        <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 800 }}>
+                        <Typography
+                          variant="subtitle2"
+                          color="text.secondary"
+                          sx={{ fontWeight: 800 }}
+                        >
                           Identity
                         </Typography>
                         <Box sx={{ mt: 1 }}>
@@ -220,13 +305,29 @@ export default function UserAccessViewer() {
                       </Paper>
 
                       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-                        <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 800 }}>
+                        <Typography
+                          variant="subtitle2"
+                          color="text.secondary"
+                          sx={{ fontWeight: 800 }}
+                        >
                           Access Summary
                         </Typography>
                         <Box sx={{ mt: 1 }}>
-                          <KV k="AD Groups (memberOf)" v={String(user.adGroups.length)} />
-                          <KV k="Effective permissions" v={String(user.permissions.length)} />
-                          <KV k="High risk permissions" v={String(user.permissions.filter((p) => p.risk === "HIGH").length)} />
+                          <KV
+                            k="AD Groups (memberOf)"
+                            v={String(user.adGroups.length)}
+                          />
+                          <KV
+                            k="Effective permissions"
+                            v={String(user.permissions.length)}
+                          />
+                          <KV
+                            k="High risk permissions"
+                            v={String(
+                              user.permissions.filter((p) => p.risk === "HIGH")
+                                .length,
+                            )}
+                          />
                         </Box>
                       </Paper>
                     </Box>

@@ -5,6 +5,7 @@ import { MOCK } from "./mockData";
  * Maps LDAP/Active Directory response to UI data structure
  */
 function transformAdUserToFrontend(adUser) {
+  //console.log("RAW AD USER:", adUser);
   // Parse memberOf DNs to extract group names and determine membership type
   const adGroups = (adUser.memberOf || []).map((dn) => {
     // Extract CN=GroupName from DN
@@ -33,11 +34,11 @@ function transformAdUserToFrontend(adUser) {
   // Mock permissions data (from groupToPermissions mapping)
   // TODO: Replace with real data from backend when available
   const mockPermissionsForUser = getMockPermissionsForGroups(
-    adGroups.map((g) => g.name)
+    adGroups.map((g) => g.name),
   );
 
   return {
-    userId: adUser.sAMAccountName || adUser.name,
+    userId: adUser.samaccountName || adUser.name,
     displayName: adUser.displayName,
     email: adUser.mail,
     status: status,
@@ -64,16 +65,28 @@ function getMockPermissionsForGroups(groupNames) {
 
   const permissionDetails = {
     APPEALS_VIEW: { label: "View Appeals", category: "Appeals", risk: "LOW" },
-    APPEALS_SEARCH: { label: "Search Appeals", category: "Appeals", risk: "LOW" },
+    APPEALS_SEARCH: {
+      label: "Search Appeals",
+      category: "Appeals",
+      risk: "LOW",
+    },
     DOCS_VIEW: { label: "View Documents", category: "Documents", risk: "MED" },
     REPORTS_VIEW: { label: "View Reports", category: "Reports", risk: "MED" },
-    REPORTS_EXPORT: { label: "Export Reports", category: "Reports", risk: "HIGH" },
+    REPORTS_EXPORT: {
+      label: "Export Reports",
+      category: "Reports",
+      risk: "HIGH",
+    },
     ADMIN_IMPERSONATE: {
       label: "Impersonate User",
       category: "Admin",
       risk: "HIGH",
     },
-    USER_UNLOCK: { label: "Unlock User Account", category: "Admin", risk: "MED" },
+    USER_UNLOCK: {
+      label: "Unlock User Account",
+      category: "Admin",
+      risk: "MED",
+    },
   };
 
   // Build permissions array
@@ -144,7 +157,7 @@ export async function searchUsers({ query, signal, env = "test" }) {
         (u) =>
           u.userId.toLowerCase().includes(q) ||
           u.displayName.toLowerCase().includes(q) ||
-          u.email.toLowerCase().includes(q)
+          u.email.toLowerCase().includes(q),
       );
     }
 
@@ -163,14 +176,17 @@ export async function searchUsers({ query, signal, env = "test" }) {
 export function permissionsToCsv(user) {
   const escapeCsv = (val) => {
     const s = String(val ?? "");
-    if (s.includes(",") || s.includes('"') || s.includes("\n")) return `"${s.replaceAll('"', '""')}"`;
+    if (s.includes(",") || s.includes('"') || s.includes("\n"))
+      return `"${s.replaceAll('"', '""')}"`;
     return s;
   };
 
   const rows = [
     ["code", "label", "category", "risk", "grantedVia"].join(","),
     ...user.permissions.map((p) =>
-      [p.code, p.label, p.category, p.risk, p.grantedVia.join("|")].map(escapeCsv).join(",")
+      [p.code, p.label, p.category, p.risk, p.grantedVia.join("|")]
+        .map(escapeCsv)
+        .join(","),
     ),
   ];
 
