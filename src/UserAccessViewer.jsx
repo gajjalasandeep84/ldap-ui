@@ -18,7 +18,7 @@ import {
 import SearchIcon from "@mui/icons-material/Search";
 import DownloadIcon from "@mui/icons-material/Download";
 
-import { searchUsers, permissionsToCsv } from "./api/userAccessApi";
+import { searchUsers, permissionsToCsv, getPermissions } from "./api/userAccessApi";
 import { KV } from "./components/kv";
 import { ResultsPane } from "./components/ResultsPane";
 import { UserHeader } from "./components/UserHeader";
@@ -46,6 +46,10 @@ export default function UserAccessViewer() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const [permLoading, setPermLoading] = useState(false);
+  const [permError, setPermError] = useState("");
+  const [permissionsData, setPermissionsData] = useState(null);
 
   const [env, setEnv] = useState("test"); // Environment: test, prod, default
 
@@ -91,6 +95,45 @@ export default function UserAccessViewer() {
     return () => controller.abort();
   }, [env]);
 
+  // Fetch permissions when user is selected
+  useEffect(() => {
+    if (!selectedId) {
+      setPermissionsData(null);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        setPermLoading(true);
+        setPermError("");
+
+        const data = await getPermissions({
+          userId: selectedId,
+          env,
+          roles: user?.adGroups?.map((g) => g.name) || [],
+          signal: controller.signal,
+        });
+
+        if (!controller.signal.aborted) {
+          setPermissionsData(data);
+        }
+      } catch (e) {
+        if (e?.name === "AbortError") return;
+        console.warn("Failed to load permissions, using mock data:", e);
+        setPermError(e.message);
+        // Note: Keep using mock data if API call fails
+      } finally {
+        if (!controller.signal.aborted) {
+          setPermLoading(false);
+        }
+      }
+    })();
+
+    return () => controller.abort();
+  }, [selectedId, env, user?.adGroups]);
+
   // Client-side search only
   const users = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -135,16 +178,28 @@ export default function UserAccessViewer() {
 
   const filteredPerms = useMemo(() => {
     if (!user) return [];
+    
+    // Use API permissions if available, otherwise fall back to mock
+    const permissions = permissionsData?.items || user.permissions;
+    
     const q = permFilter.trim().toLowerCase();
-    if (!q) return user.permissions;
-    return user.permissions.filter(
-      (p) =>
-        p.code.toLowerCase().includes(q) ||
-        p.label.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q) ||
-        p.grantedVia.some((g) => g.toLowerCase().includes(q)),
+    if (!q) return permissions;
+    return permissions.filter(
+      (p) =>{
+        const code = (p.code || p.name || "").toLowerCase();
+        const label = (p.label || p.name || "").toLowerCase();
+        const category = (p.category || "").toLowerCase();
+        const grantedVia = (p.grantedVia || []).map(g => g.toLowerCase()).join(" ");
+        
+        return (
+          code.includes(q) ||
+          label.includes(q) ||
+          category.includes(q) ||
+          grantedVia.includes(q)
+        );
+      }
     );
-  }, [user, permFilter]);
+  }, [user, permFilter, permissionsData]);
 
   function openGroupDrawer(groupName) {
     if (!user) return;
@@ -274,7 +329,7 @@ export default function UserAccessViewer() {
                   >
                     <Tab label="Overview" />
                     <Tab label={`AD Groups (${user.adGroups.length})`} />
-                    <Tab label={`Permissions (${user.permissions.length})`} />
+                    <Tab label={`Permissions (${permissionsData?.items?.length ?? user.permissions.length})`} />
                     <Tab label="Mapping (Debug)" />
                   </Tabs>
                   <Divider />
@@ -319,12 +374,12 @@ export default function UserAccessViewer() {
                           />
                           <KV
                             k="Effective permissions"
-                            v={String(user.permissions.length)}
+                            v={String(permissionsData?.count ?? user.permissions.length)}
                           />
                           <KV
                             k="High risk permissions"
                             v={String(
-                              user.permissions.filter((p) => p.risk === "HIGH")
+                              (permissionsData?.items || user.permissions).filter((p) => p.riskLevel === "HIGH" || p.risk === "HIGH")
                                 .length,
                             )}
                           />

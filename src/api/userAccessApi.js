@@ -1,6 +1,34 @@
 import { MOCK } from "./mockData";
 
 /**
+ * Transform backend permission response to frontend format
+ * Maps /api/users/permissions response to UI data structure
+ */
+function transformPermissionsResponse(apiResponse) {
+  if (!apiResponse || !apiResponse.items) {
+    return null;
+  }
+
+  // Transform each permission item
+  const transformedItems = apiResponse.items.map((item) => ({
+    code: item.name || "UNKNOWN",
+    name: item.name || "UNKNOWN",
+    label: item.name || "UNKNOWN",
+    category: "System", // API doesn't provide category, default to "System"
+    risk: item.riskLevel || "LOW",
+    riskLevel: item.riskLevel || "LOW",
+    source: item.source || "ROLE",
+    grantedVia: [], // API doesn't provide direct mapping, frontend will use roles
+  }));
+
+  return {
+    ...apiResponse,
+    items: transformedItems,
+    count: apiResponse.permissionCount || transformedItems.length,
+  };
+}
+
+/**
  * Transform backend AD user response to frontend format
  * Maps LDAP/Active Directory response to UI data structure
  */
@@ -165,6 +193,41 @@ export async function searchUsers({ query, signal, env = "test" }) {
   } catch (error) {
     // Log error but don't throw - let caller handle
     console.error("Failed to fetch users:", error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch user permissions from backend
+ * Calls /api/users/permissions endpoint
+ */
+export async function getPermissions({ userId, env = "test", roles = [], signal }) {
+  try {
+    const endpoint = `/api/users/permissions`;
+    
+    const requestBody = {
+      userId,
+      env,
+      roles: Array.isArray(roles) ? roles : []
+    };
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+      signal,
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const data = await res.json();
+    return transformPermissionsResponse(data);
+  } catch (error) {
+    console.error("Failed to fetch permissions:", error);
     throw error;
   }
 }

@@ -23,20 +23,24 @@ export function PermissionsTab({ user, permFilter, setPermFilter, filteredPerms,
         <Divider />
 
         {filteredPerms.map((p, idx) => (
-          <Box key={p.code}>
+          <Box key={p.code || p.name}>
             <Box sx={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr 120px 1fr", gap: 1, p: 1.5, alignItems: "center" }}>
               <Box sx={{ minWidth: 0 }}>
-                <Typography variant="body2" sx={{ fontWeight: 950 }}>{p.code}</Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>{p.label}</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 950 }}>{p.code || p.name}</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>{p.label || p.name}</Typography>
               </Box>
 
-              <Typography variant="body2">{p.category}</Typography>
-              <RiskChip risk={p.risk} />
+              <Typography variant="body2">{p.category || "System"}</Typography>
+              <RiskChip risk={p.risk || p.riskLevel} />
 
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
-                {p.grantedVia.map((g) => (
-                  <Chip key={g} size="small" label={g} variant="outlined" onClick={() => openGroupDrawer(g)} />
-                ))}
+                {(p.grantedVia && p.grantedVia.length > 0) ? (
+                  p.grantedVia.map((g) => (
+                    <Chip key={g} size="small" label={g} variant="outlined" onClick={() => openGroupDrawer(g)} />
+                  ))
+                ) : (
+                  <Typography variant="caption" color="text.secondary">From roles</Typography>
+                )}
               </Box>
             </Box>
             {idx !== filteredPerms.length - 1 && <Divider />}
