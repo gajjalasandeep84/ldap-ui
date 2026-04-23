@@ -5,27 +5,48 @@ import { MOCK } from "./mockData";
  * Maps /api/users/permissions response to UI data structure
  */
 function transformPermissionsResponse(apiResponse) {
-  if (!apiResponse || !apiResponse.items) {
+  try {
+    if (!apiResponse || typeof apiResponse !== 'object') {
+      console.warn("Invalid API response:", apiResponse);
+      return null;
+    }
+
+    // Handle case where response is not in expected format
+    const items = apiResponse.permissions || apiResponse.items || [];
+    
+    if (!Array.isArray(items)) {
+      console.warn("API response items is not an array:", items);
+      return null;
+    }
+
+    // Transform each permission item
+    const transformedItems = items.map((item) => {
+      if (!item || typeof item !== 'object') {
+        console.warn("Invalid permission item:", item);
+        return null;
+      }
+
+      return {
+        code: item.name || "UNKNOWN",
+        name: item.name || "UNKNOWN",
+        label: item.name || "UNKNOWN",
+        category: "System", // API doesn't provide category, default to "System"
+        risk: item.riskLevel || "LOW",
+        riskLevel: item.riskLevel || "LOW",
+        source: item.source || "ROLE",
+        grantedVia: [], // API doesn't provide direct mapping, frontend will use roles
+      };
+    }).filter(item => item !== null);
+
+    return {
+      ...apiResponse,
+      items: transformedItems,
+      count: apiResponse.permissionCount || transformedItems.length,
+    };
+  } catch (error) {
+    console.error("Error transforming permissions response:", error);
     return null;
   }
-
-  // Transform each permission item
-  const transformedItems = apiResponse.items.map((item) => ({
-    code: item.name || "UNKNOWN",
-    name: item.name || "UNKNOWN",
-    label: item.name || "UNKNOWN",
-    category: "System", // API doesn't provide category, default to "System"
-    risk: item.riskLevel || "LOW",
-    riskLevel: item.riskLevel || "LOW",
-    source: item.source || "ROLE",
-    grantedVia: [], // API doesn't provide direct mapping, frontend will use roles
-  }));
-
-  return {
-    ...apiResponse,
-    items: transformedItems,
-    count: apiResponse.permissionCount || transformedItems.length,
-  };
 }
 
 /**
@@ -203,6 +224,10 @@ export async function searchUsers({ query, signal, env = "test" }) {
  */
 export async function getPermissions({ userId, env = "test", roles = [], signal }) {
   try {
+    if (!userId) {
+      throw new Error("userId is required");
+    }
+
     const endpoint = `/api/users/permissions`;
     
     const requestBody = {
@@ -210,6 +235,8 @@ export async function getPermissions({ userId, env = "test", roles = [], signal 
       env,
       roles: Array.isArray(roles) ? roles : []
     };
+
+    console.log("Calling API:", endpoint, requestBody);
 
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -221,11 +248,25 @@ export async function getPermissions({ userId, env = "test", roles = [], signal 
     });
 
     if (!res.ok) {
-      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      const errorText = await res.text().catch(() => res.statusText);
+      throw new Error(`HTTP ${res.status}: ${errorText}`);
     }
 
     const data = await res.json();
-    return transformPermissionsResponse(data);
+    console.log("API response:", data);
+    
+    const transformed = transformPermissionsResponse(data);
+    if (!transformed) {
+      console.warn("API response could not be transformed, returning empty permissions");
+      return {
+        items: [],
+        count: 0,
+        userId,
+        env
+      };
+    }
+    
+    return transformed;
   } catch (error) {
     console.error("Failed to fetch permissions:", error);
     throw error;

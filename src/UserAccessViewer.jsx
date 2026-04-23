@@ -97,7 +97,7 @@ export default function UserAccessViewer() {
 
   // Fetch permissions when user is selected
   useEffect(() => {
-    if (!selectedId) {
+    if (!selectedId || !user) {
       setPermissionsData(null);
       return;
     }
@@ -109,21 +109,27 @@ export default function UserAccessViewer() {
         setPermLoading(true);
         setPermError("");
 
+        const roles = user.adGroups?.map((g) => g.name) || [];
+        
+        console.log("Fetching permissions for:", { userId: selectedId, env, rolesCount: roles.length });
+        
         const data = await getPermissions({
           userId: selectedId,
           env,
-          roles: user?.adGroups?.map((g) => g.name) || [],
+          roles,
           signal: controller.signal,
         });
+
+        console.log("Received permissions data:", data);
 
         if (!controller.signal.aborted) {
           setPermissionsData(data);
         }
       } catch (e) {
         if (e?.name === "AbortError") return;
-        console.warn("Failed to load permissions, using mock data:", e);
+        console.error("Failed to load permissions:", e);
         setPermError(e.message);
-        // Note: Keep using mock data if API call fails
+        // Keep using mock data if API call fails
       } finally {
         if (!controller.signal.aborted) {
           setPermLoading(false);
@@ -132,7 +138,7 @@ export default function UserAccessViewer() {
     })();
 
     return () => controller.abort();
-  }, [selectedId, env, user?.adGroups]);
+  }, [selectedId, env, user]);
 
   // Client-side search only
   const users = useMemo(() => {
@@ -180,25 +186,33 @@ export default function UserAccessViewer() {
     if (!user) return [];
     
     // Use API permissions if available, otherwise fall back to mock
-    const permissions = permissionsData?.items || user.permissions;
+    const permissions = permissionsData?.items || user.permissions || [];
+    
+    if (!Array.isArray(permissions)) {
+      console.warn("Permissions is not an array:", permissions);
+      return [];
+    }
     
     const q = permFilter.trim().toLowerCase();
     if (!q) return permissions;
-    return permissions.filter(
-      (p) =>{
-        const code = (p.code || p.name || "").toLowerCase();
-        const label = (p.label || p.name || "").toLowerCase();
-        const category = (p.category || "").toLowerCase();
-        const grantedVia = (p.grantedVia || []).map(g => g.toLowerCase()).join(" ");
-        
-        return (
-          code.includes(q) ||
-          label.includes(q) ||
-          category.includes(q) ||
-          grantedVia.includes(q)
-        );
-      }
-    );
+    
+    return permissions.filter((p) => {
+      if (!p) return false;
+      
+      const code = (p.code || p.name || "").toString().toLowerCase();
+      const label = (p.label || p.name || "").toString().toLowerCase();
+      const category = (p.category || "").toString().toLowerCase();
+      const source = (p.source || "").toString().toLowerCase();
+      const grantedVia = (p.grantedVia || []).map(g => (g || "").toString().toLowerCase()).join(" ");
+      
+      return (
+        code.includes(q) ||
+        label.includes(q) ||
+        category.includes(q) ||
+        source.includes(q) ||
+        grantedVia.includes(q)
+      );
+    });
   }, [user, permFilter, permissionsData]);
 
   function openGroupDrawer(groupName) {
@@ -370,16 +384,17 @@ export default function UserAccessViewer() {
                         <Box sx={{ mt: 1 }}>
                           <KV
                             k="AD Groups (memberOf)"
-                            v={String(user.adGroups.length)}
+                            v={String(user.adGroups?.length ?? 0)}
                           />
                           <KV
                             k="Effective permissions"
-                            v={String(permissionsData?.count ?? user.permissions.length)}
+                            v={String(permissionsData?.count ?? permissionsData?.items?.length ?? user.permissions?.length ?? 0)}
                           />
                           <KV
                             k="High risk permissions"
                             v={String(
-                              (permissionsData?.items || user.permissions).filter((p) => p.riskLevel === "HIGH" || p.risk === "HIGH")
+                              ((permissionsData?.items || user?.permissions) || [])
+                                .filter((p) => (p?.riskLevel === "HIGH" || p?.risk === "HIGH"))
                                 .length,
                             )}
                           />
