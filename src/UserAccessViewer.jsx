@@ -128,50 +128,62 @@ export default function UserAccessViewer() {
     }
   }, [users, selectedId]);
 
-  // Fetch permissions when user is selected
-  useEffect(() => {
-    if (!selectedId || !user) {
-      setPermissionsData(null);
-      return;
+  // Fetch permissions on demand when Permissions tab is clicked
+  const fetchPermissions = async () => {
+    if (!user) return;
+
+    try {
+      setPermLoading(true);
+      setPermError("");
+
+      const roles = user.adGroups?.map((g) => g.name) || [];
+      
+      console.log("Fetching permissions for:", { userId: user.userId, env, rolesCount: roles.length });
+      
+      const data = await getPermissions({
+        userId: user.userId,
+        env,
+        roles,
+      });
+
+      console.log("Received permissions data:", data);
+      setPermissionsData(data);
+    } catch (e) {
+      console.error("Failed to load permissions:", e);
+      setPermError(e.message);
+      // Keep using mock data if API call fails
+    } finally {
+      setPermLoading(false);
     }
+  };
 
-    const controller = new AbortController();
+  // Fetch permissions for a specific group/role
+  const fetchPermissionsForGroup = async (groupName) => {
+    if (!user) return;
 
-    (async () => {
-      try {
-        setPermLoading(true);
-        setPermError("");
+    try {
+      setPermLoading(true);
+      setPermError("");
 
-        const roles = user.adGroups?.map((g) => g.name) || [];
-        
-        console.log("Fetching permissions for:", { userId: selectedId, env, rolesCount: roles.length });
-        
-        const data = await getPermissions({
-          userId: selectedId,
-          env,
-          roles,
-          signal: controller.signal,
-        });
+      console.log("Fetching permissions for group:", { userId: user.userId, env, role: groupName });
+      
+      const data = await getPermissions({
+        userId: user.userId,
+        env,
+        roles: [groupName], // Only this specific role
+      });
 
-        console.log("Received permissions data:", data);
-
-        if (!controller.signal.aborted) {
-          setPermissionsData(data);
-        }
-      } catch (e) {
-        if (e?.name === "AbortError") return;
-        console.error("Failed to load permissions:", e);
-        setPermError(e.message);
-        // Keep using mock data if API call fails
-      } finally {
-        if (!controller.signal.aborted) {
-          setPermLoading(false);
-        }
-      }
-    })();
-
-    return () => controller.abort();
-  }, [selectedId, env, user]);
+      console.log("Received permissions data for group:", data);
+      setPermissionsData(data);
+      // Switch to Permissions tab to show the results
+      setTab(2);
+    } catch (e) {
+      console.error("Failed to load permissions for group:", e);
+      setPermError(e.message);
+    } finally {
+      setPermLoading(false);
+    }
+  };
 
   const filteredGroups = useMemo(() => {
     if (!user) return [];
@@ -338,7 +350,13 @@ export default function UserAccessViewer() {
                 >
                   <Tabs
                     value={tab}
-                    onChange={(_, v) => setTab(v)}
+                    onChange={(_, v) => {
+                      setTab(v);
+                      // Fetch permissions only when clicking Permissions tab (tab === 2)
+                      if (v === 2 && !permissionsData) {
+                        fetchPermissions();
+                      }
+                    }}
                     sx={{ px: 2 }}
                   >
                     <Tab label="Overview" />
@@ -409,7 +427,7 @@ export default function UserAccessViewer() {
                       groupFilter={groupFilter}
                       setGroupFilter={setGroupFilter}
                       filteredGroups={filteredGroups}
-                      openGroupDrawer={openGroupDrawer}
+                      onViewPerms={fetchPermissionsForGroup}
                     />
                   )}
 

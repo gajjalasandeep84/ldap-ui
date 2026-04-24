@@ -33,6 +33,28 @@ export default defineConfig({
           });
         },
       },
+      "/api": {
+        target: "http://localhost:8081",
+        changeOrigin: true,
+        secure: false,
+        configure: (proxy, options) => {
+          proxy.on("proxyReq", (proxyReq, req, res) => {
+            console.log(
+              "[proxyReq]",
+              req.method,
+              req.url,
+              "->",
+              options.target,
+            );
+          });
+          proxy.on("proxyRes", (proxyRes, req, res) => {
+            console.log("[proxyRes]", req.method, req.url, proxyRes.statusCode);
+          });
+          proxy.on("error", (err, req, res) => {
+            console.error("[proxyError]", req.method, req.url, err.message);
+          });
+        },
+      },
     },
   },
 });

@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, Button, Chip, Divider, Paper, TextField, Typography } from "@mui/material";
 
-export function GroupsTab({ user, groupFilter, setGroupFilter, filteredGroups, openGroupDrawer }) {
+export function GroupsTab({ user, groupFilter, setGroupFilter, filteredGroups, onViewPerms }) {
   return (
     <Box sx={{ p: 2 }}>
       <TextField
@@ -32,7 +32,7 @@ export function GroupsTab({ user, groupFilter, setGroupFilter, filteredGroups, o
 
               <Chip size="small" label={g.membership} variant="outlined" />
 
-              <Button size="small" variant="outlined" onClick={() => openGroupDrawer(g.name)}>
+              <Button size="small" variant="outlined" onClick={() => onViewPerms(g.name)}>
                 View perms
               </Button>
             </Box>
