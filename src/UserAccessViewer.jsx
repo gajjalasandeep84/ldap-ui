@@ -95,6 +95,39 @@ export default function UserAccessViewer() {
     return () => controller.abort();
   }, [env]);
 
+  // Client-side search only
+  const users = useMemo(() => {
+    const q = query.trim().toLowerCase();
+
+    if (!q) return allUsers;
+
+    return allUsers.filter((u) => {
+      return (
+        u.displayName?.toLowerCase().includes(q) ||
+        u.userId?.toLowerCase().includes(q) ||
+        u.email?.toLowerCase().includes(q)
+      );
+    });
+  }, [allUsers, query]);
+
+  // Keep selected user valid against filtered list
+  const user = useMemo(() => {
+    if (!users.length) return null;
+    return users.find((u) => u.userId === selectedId) || users[0];
+  }, [users, selectedId]);
+
+  // Optional: if current selected user disappears from filtered results, select first visible one
+  useEffect(() => {
+    if (!users.length) {
+      setSelectedId("");
+      return;
+    }
+
+    if (!users.some((u) => u.userId === selectedId)) {
+      setSelectedId(users[0].userId);
+    }
+  }, [users, selectedId]);
+
   // Fetch permissions when user is selected
   useEffect(() => {
     if (!selectedId || !user) {
@@ -139,39 +172,6 @@ export default function UserAccessViewer() {
 
     return () => controller.abort();
   }, [selectedId, env, user]);
-
-  // Client-side search only
-  const users = useMemo(() => {
-    const q = query.trim().toLowerCase();
-
-    if (!q) return allUsers;
-
-    return allUsers.filter((u) => {
-      return (
-        u.displayName?.toLowerCase().includes(q) ||
-        u.userId?.toLowerCase().includes(q) ||
-        u.email?.toLowerCase().includes(q)
-      );
-    });
-  }, [allUsers, query]);
-
-  // Keep selected user valid against filtered list
-  const user = useMemo(() => {
-    if (!users.length) return null;
-    return users.find((u) => u.userId === selectedId) || users[0];
-  }, [users, selectedId]);
-
-  // Optional: if current selected user disappears from filtered results, select first visible one
-  useEffect(() => {
-    if (!users.length) {
-      setSelectedId("");
-      return;
-    }
-
-    if (!users.some((u) => u.userId === selectedId)) {
-      setSelectedId(users[0].userId);
-    }
-  }, [users, selectedId]);
 
   const filteredGroups = useMemo(() => {
     if (!user) return [];
